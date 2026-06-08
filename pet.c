@@ -16,33 +16,40 @@ static int major_number;
 static struct class* pet_class = NULL;
 static struct device* pet_device = NULL;
 static struct timer_list pet_timer;
-static int hunger = 50;
-static int happiness = 50;
-static int health = 100;
+struct Pet{
+    int hunger;
+    int happiness;
+    int health;
+};
+static struct Pet pet;
 
-static ssize_t pet_read(struct file *filep, char __user *buffer, size_t len, loff_t *offset) {
-    char msg[128];
-    int msg_len;
-    const char *mood;
-
-    if(health == 0){
+static const char *pet_get_mood(void){
+    const char* mood;
+    if(pet.health == 0){
         mood = "Dead";
     }else{
-        if(hunger >= 50){
+        if(pet.hunger >= 70){
             mood = "Starving";
         }else{
-            if(happiness <= 40){
+            if(pet.happiness <= 40){
                 mood = "Sad";
-            }else if(happiness >= 60){
+            }else if(pet.happiness >= 60){
                 mood = "Happy";
             }else{
                 mood = "normal";
             }
         }
     }
+    return mood;
+}
+
+static ssize_t pet_read(struct file *filep, char __user *buffer, size_t len, loff_t *offset) {
+    char msg[128];
+    int msg_len;
+
     msg_len = snprintf(msg, sizeof(msg),
         "Name: Mochi\nHealth: %d\nHunger: %d\nHappiness: %d\nMood: %s\n",
-        health, hunger, happiness, mood
+        pet.health, pet.hunger, pet.happiness, pet_get_mood()
     );
 
     if (*offset >= msg_len) {
@@ -71,24 +78,24 @@ static ssize_t pet_write(struct file *filep, const char __user *buffer, size_t l
     command[len] = '\0';
 
     if (strncmp(command, "feed", 4) == 0) {
-        hunger -= 10;
-        happiness += 2;
+        pet.hunger -= 10;
+        pet.happiness += 2;
     } else if (strncmp(command, "play", 4) == 0) {
-        happiness += 10;
-        hunger += 5;
+        pet.happiness += 10;
+        pet.hunger += 5;
     } else if (strncmp(command, "sleep", 5) == 0) {
-        health += 5;
-        hunger += 3;
+        pet.health += 5;
+        pet.hunger += 3;
     } else if (strncmp(command, "medicine", 8) == 0){
-        health += 10;
+        pet.health += 10;
     }
 
-    if (hunger < 0) hunger = 0;
-    if (hunger > 100) hunger = 100;
-    if (happiness < 0) happiness = 0;
-    if (happiness > 100) happiness = 100;
-    if (health < 0) health = 0;
-    if (health > 100) health = 100;
+    if (pet.hunger < 0) pet.hunger = 0;
+    if (pet.hunger > 100) pet.hunger = 100;
+    if (pet.happiness < 0) pet.happiness = 0;
+    if (pet.happiness > 100) pet.happiness = 100;
+    if (pet.health < 0) pet.health = 0;
+    if (pet.health > 100) pet.health = 100;
 
     return len;
 }
@@ -105,14 +112,14 @@ static void pet_tick(struct timer_list *t)
     // happiness should decrease over time
     // if hunger gets too high, health should decrease
     // clamp values between 0 and 100
-    if(hunger < 100){
-        hunger += 1;
+    if(pet.hunger < 100){
+        pet.hunger += 1;
     }
-    if(happiness > 0){
-        happiness -= 1;
+    if(pet.happiness > 0){
+        pet.happiness -= 1;
     }
-    if(hunger > 80){
-        if(health > 0) health -= 1;
+    if(pet.hunger > 80){
+        if(pet.health > 0) pet.health -= 1;
     }
     
     printk(KERN_INFO "pet: tick\n");
@@ -122,6 +129,9 @@ static void pet_tick(struct timer_list *t)
 
 static int __init pet_init(void) {
     major_number = register_chrdev(0, DEVICE_NAME, &fops);
+    pet.health = 100;
+    pet.hunger = 50;
+    pet.happiness = 50;
 
     if (major_number < 0) {
         printk(KERN_ALERT "pet: failed to register major number\n");
