@@ -4,6 +4,9 @@
 #include <linux/uaccess.h>
 #include <linux/device.h>
 #include <linux/timer.h>
+#include <linux/module.h>
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
 
 #define DEVICE_NAME "pet"
 #define CLASS_NAME "tamagotchi"
@@ -22,6 +25,7 @@ struct Pet{
     int health;
 };
 static struct Pet pet;
+
 
 static const char *pet_get_mood(void){
     const char* mood;
@@ -42,6 +46,26 @@ static const char *pet_get_mood(void){
     }
     return mood;
 }
+
+static int my_proc_show(struct seq_file *m, void *v) {
+    seq_printf(m,
+    "Name: Mochi\nHealth: %d\nHunger: %d\nHappiness: %d\nMood: %s\n",
+    pet.health, pet.hunger, pet.happiness, pet_get_mood());
+    return 0;
+}
+
+static int my_proc_open(struct inode *inode, struct file *file) {
+    return single_open(file, my_proc_show, NULL);
+}
+
+static const struct proc_ops my_proc_fops = {
+    .proc_open    = my_proc_open,
+    .proc_read    = seq_read,
+    .proc_lseek   = seq_lseek,
+    .proc_release = single_release,
+};
+
+
 
 static ssize_t pet_read(struct file *filep, char __user *buffer, size_t len, loff_t *offset) {
     char msg[128];
@@ -127,6 +151,17 @@ static void pet_tick(struct timer_list *t)
     mod_timer(&pet_timer, jiffies + msecs_to_jiffies(5000));
 }
 
+static int __init my_proc_init(void) {
+    // Arguments: File name, Permissions (0 means default), Parent dir, Proc Ops
+    proc_create("tamagotchi_proc", 0, NULL, &my_proc_fops);
+    return 0;
+}
+
+static void __exit my_proc_exit(void) {
+    remove_proc_entry("tamagotchi_proc", NULL);
+}
+
+
 static int __init pet_init(void) {
     major_number = register_chrdev(0, DEVICE_NAME, &fops);
     pet.health = 100;
@@ -154,17 +189,21 @@ static int __init pet_init(void) {
     }   
     timer_setup(&pet_timer, pet_tick, 0);
     mod_timer(&pet_timer, jiffies + msecs_to_jiffies(5000));
-
+    my_proc_init();
     printk(KERN_INFO "pet: /dev/pet created\n");
     return 0;
 }
+
+
 
 static void __exit pet_exit(void) {
     timer_delete_sync(&pet_timer);
     device_destroy(pet_class, MKDEV(major_number, 0));
     class_destroy(pet_class);
     unregister_chrdev(major_number, DEVICE_NAME);
+    my_proc_exit();
     printk(KERN_INFO "pet: /dev/pet removed\n");
+    
 }
 
 module_init(pet_init);

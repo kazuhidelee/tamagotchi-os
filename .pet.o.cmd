@@ -1076,6 +1076,12 @@ deps_pet.o := \
   /usr/src/linux-headers-7.0.0-22-generic/include/linux/device/driver.h \
   /usr/src/linux-headers-7.0.0-22-generic/arch/arm64/include/asm/device.h \
   /usr/src/linux-headers-7.0.0-22-generic/include/linux/pm_wakeup.h \
+  /usr/src/linux-headers-7.0.0-22-generic/include/linux/proc_fs.h \
+    $(wildcard include/config/PROC_PID_ARCH_STATUS) \
+  /usr/src/linux-headers-7.0.0-22-generic/include/linux/seq_file.h \
+  /usr/src/linux-headers-7.0.0-22-generic/include/linux/string_helpers.h \
+  /usr/src/linux-headers-7.0.0-22-generic/include/linux/ctype.h \
+  /usr/src/linux-headers-7.0.0-22-generic/include/linux/string_choices.h \
 
 pet.o: $(deps_pet.o)
 
