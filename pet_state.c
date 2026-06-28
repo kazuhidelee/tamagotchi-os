@@ -60,6 +60,7 @@ static void pet_tick(struct timer_list *t)
     
     printk(KERN_INFO "pet: tick\n");
     mutex_unlock(&pet_lock);
+    pet_log_event("timer tick");
     mod_timer(&pet_timer, jiffies + msecs_to_jiffies(5000));
 }
 

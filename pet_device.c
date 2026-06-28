@@ -65,6 +65,7 @@ static ssize_t pet_write(struct file *filep, const char __user *buffer, size_t l
     }
     pet_clamp_state();
     mutex_unlock(&pet_lock);
+    pet_log_event("command: feed");
     return len;
 }
 

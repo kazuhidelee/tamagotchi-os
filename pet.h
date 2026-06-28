@@ -43,5 +43,8 @@ void pet_state_init(void);
 void pet_timer_start(void);
 void pet_timer_stop(void);
 
+void pet_log_event(const char *event);
+void pet_log_show(struct seq_file *m);
+
 
 #endif

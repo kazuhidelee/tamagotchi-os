@@ -11,8 +11,9 @@
 #include "pet.h"
 
 static struct proc_dir_entry *pet_proc_entry = NULL;
+static struct proc_dir_entry *pet_proc_log_entry = NULL;
 
-
+// /proc/tamagotchi_proc
 static int my_proc_show(struct seq_file *m, void *v) {
     mutex_lock(&pet_lock);
     seq_printf(m,
@@ -34,6 +35,38 @@ static const struct proc_ops my_proc_fops = {
     .proc_release = single_release,
 };
 
+// /proc/tamagotchi_log
+
+static int pet_proc_log_show(struct seq_file *m, void *v){
+    pet_log_show(m);
+    return 0;
+}
+
+static int pet_proc_log_open(struct inode *inode, struct file *file) {
+    return single_open(file, pet_proc_log_show, NULL);
+}
+
+
+static const struct proc_ops pet_proc_log_fops= {
+    .proc_open    = pet_proc_log_open,
+    .proc_read    = seq_read,
+    .proc_lseek   = seq_lseek,
+    .proc_release = single_release,
+};
+
+void pet_proc_unregister(void){
+    if(pet_proc_log_entry){
+        remove_proc_entry("tamagotchi_log", NULL);
+        pet_proc_log_entry = NULL;
+    }
+
+    if(pet_proc_entry){
+        remove_proc_entry("tamagotchi_proc", NULL);
+        pet_proc_entry = NULL;
+    }
+}
+
+
 int pet_proc_register(void)
 {
     pet_proc_entry = proc_create(
@@ -43,21 +76,25 @@ int pet_proc_register(void)
         &my_proc_fops
     );
 
-    // TODO:
-    // Check if proc_create failed.
-    // Print an error with printk().
-    // Return an appropriate error code.
     if (!pet_proc_entry) {
         printk(KERN_ALERT "pet: failed to create proc\n");
+        return -ENOMEM;
+    }
+
+    pet_proc_log_entry = proc_create(
+        "tamagotchi_log",
+        0,
+        NULL,
+        &pet_proc_log_fops
+    );
+
+    if (!pet_proc_log_entry) {
+        printk(KERN_ALERT "pet: failed to create log proc\n");
+        pet_proc_unregister();
         return -ENOMEM;
     }
 
     return 0;
 }
 
-void pet_proc_unregister(void){
-    if(pet_proc_entry){
-        remove_proc_entry("tamagotchi_proc", NULL);
-        pet_proc_entry = NULL;
-    }
-}
+
