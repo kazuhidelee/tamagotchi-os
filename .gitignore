@@ -7,3 +7,13 @@
 Module.symvers
 modules.order
 .tmp_versions/
+..module-common.o.cmd
+.gitignore
+.modules.order.cmd
+.Module.symvers.cmd
+.pet.ko.cmd
+.pet.mod.cmd
+.gitignore
+.pet.o.cmd
+.pet.mod.o.cmd
+packages.microsoft.gpg

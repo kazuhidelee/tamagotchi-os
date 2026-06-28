@@ -4,10 +4,10 @@
 #include <linux/uaccess.h>
 #include <linux/device.h>
 #include <linux/timer.h>
-#include <linux/module.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/mutex.h>
+#include <linux/errno.h>
 
 #define DEVICE_NAME "pet"
 #define CLASS_NAME "tamagotchi"
@@ -21,6 +21,7 @@ DEFINE_MUTEX(pet_lock);
 static int major_number;
 static struct class* pet_class = NULL;
 static struct device* pet_device = NULL;
+static struct proc_dir_entry *pet_proc_entry = NULL;
 static struct timer_list pet_timer;
 struct Pet{
     int hunger;
@@ -93,6 +94,16 @@ static ssize_t pet_read(struct file *filep, char __user *buffer, size_t len, lof
     return msg_len;
 }
 
+static void pet_clamp_state(void)
+{
+    if (pet.hunger < 0) pet.hunger = 0;
+    if (pet.hunger > 100) pet.hunger = 100;
+    if (pet.happiness < 0) pet.happiness = 0;
+    if (pet.happiness > 100) pet.happiness = 100;
+    if (pet.health < 0) pet.health = 0;
+    if (pet.health > 100) pet.health = 100;
+}
+
 static ssize_t pet_write(struct file *filep, const char __user *buffer, size_t len, loff_t *offset) {
     char command[32];
 
@@ -118,13 +129,7 @@ static ssize_t pet_write(struct file *filep, const char __user *buffer, size_t l
     } else if (strncmp(command, "medicine", 8) == 0){
         pet.health += 10;
     }
-
-    if (pet.hunger < 0) pet.hunger = 0;
-    if (pet.hunger > 100) pet.hunger = 100;
-    if (pet.happiness < 0) pet.happiness = 0;
-    if (pet.happiness > 100) pet.happiness = 100;
-    if (pet.health < 0) pet.health = 0;
-    if (pet.health > 100) pet.health = 100;
+    pet_clamp_state();
     mutex_unlock(&pet_lock);
     return len;
 }
@@ -142,15 +147,12 @@ static void pet_tick(struct timer_list *t)
     // happiness should decrease over time
     // if hunger gets too high, health should decrease
     // clamp values between 0 and 100
-    if(pet.hunger < 100){
-        pet.hunger += 1;
-    }
-    if(pet.happiness > 0){
-        pet.happiness -= 1;
-    }
+    pet.hunger += 1;
+    pet.happiness -= 1;
     if(pet.hunger > 80){
-        if(pet.health > 0) pet.health -= 1;
+        pet.health -= 1;
     }
+    pet_clamp_state();
     
     printk(KERN_INFO "pet: tick\n");
     mutex_unlock(&pet_lock);
@@ -184,7 +186,16 @@ static int __init pet_init(void) {
     }   
     timer_setup(&pet_timer, pet_tick, 0);
     // Arguments: File name, Permissions (0 means default), Parent dir, Proc Ops
-    proc_create("tamagotchi_proc", 0, NULL, &my_proc_fops);
+    pet_proc_entry = proc_create("tamagotchi_proc", 0, NULL, &my_proc_fops);
+    if (!pet_proc_entry) {
+        printk(KERN_ALERT "pet: failed to create proc\n");
+
+        device_destroy(pet_class, MKDEV(major_number, 0));
+        class_destroy(pet_class);
+        unregister_chrdev(major_number, DEVICE_NAME);
+
+        return -ENOMEM;
+    }
     mod_timer(&pet_timer, jiffies + msecs_to_jiffies(5000));
     printk(KERN_INFO "pet: /dev/pet created\n");
     return 0;
