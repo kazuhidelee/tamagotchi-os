@@ -17,3 +17,10 @@ modules.order
 .pet.o.cmd
 .pet.mod.o.cmd
 packages.microsoft.gpg
+.pet_device.o.cmd
+.gitignore
+.pet_log.o.cmd
+.pet_main.o.cmd
+.gitignore
+.pet_state.o.cmd
+.pet_proc.o.cmd
